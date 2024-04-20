@@ -1,3 +1,5 @@
+from time import sleep
+
 import paho.mqtt.client as mqtt
 
 def on_connect(client, userdata, flags, rc):
@@ -13,4 +15,15 @@ client.on_message = on_message
 
 client.username_pw_set("rpimqttclienta", "pD2l0bYEw")
 client.connect("mqtt.niels-bjorn.dk", 1883, 60)
-client.loop_forever()
+client.loop_start()
+
+data = {
+        "temperature": 20,
+        "humidity": 21,
+        "pressure": 22,
+        "timestamp": 12317
+    }
+
+while True:
+    client.publish("raspberry/Copenhagen/sense-hat/readings/all_readings", str(data))
+    sleep(5)

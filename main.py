@@ -1,10 +1,11 @@
 import json
 import secrets
+import sqlite3
 from time import sleep
 from flask import Flask, request, make_response, redirect, url_for
 import asyncio
 import paho.mqtt.client as mqtt
-
+import db_sql.db_sqlite3 as db
 
 app = Flask(__name__)
 
@@ -19,6 +20,26 @@ LAST_WILL_TOPIC = "server/status"
 # Create the MQTT Client
 mqtt_client = mqtt.Client()
 
+# Initialize database
+connection, cursor = db.initialize_db()
+db.close_connection(connection)
+
+
+def store_values_in_db(data):
+    connection = sqlite3.connect("SensorValues.db")
+    cursor = connection.cursor()
+    # Convert single quotes to double quotes
+    data_string = data.replace("'", '"')
+
+    # Convert the string to a dictionary
+    data_dict = json.loads(data_string)
+
+    # Insert values into tables in the sensor DB
+    db.insert_values_humidity(connection, cursor, data_dict['humidity'], data_dict['timestamp'], data_dict['location'])
+    db.insert_values_pressure(connection, cursor, data_dict['pressure'], data_dict['timestamp'], data_dict['location'])
+    db.insert_values_temperature(connection, cursor, data_dict['temperature'], data_dict['timestamp'],
+                                 data_dict['location'])
+    db.close_connection(connection)
 
 
 def on_connect(client, userdata, flags, rc):
@@ -32,7 +53,9 @@ def on_connect(client, userdata, flags, rc):
     else:
         print(f"Failed to connect, return code {rc}")
 
+
 def on_message(client, userdata, message):
+    store_values_in_db(message.payload.decode())
     print(f"Received message '{message.payload.decode()}' on topic '{message.topic}'")
 
 
@@ -59,12 +82,17 @@ def init_mqtt():
     mqtt_client.will_set(LAST_WILL_TOPIC, payload=LAST_WILL_MESSAGE, qos=1, retain=False)
 
     mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
-    mqtt_client.subscribe("raspberry/#", 0)
+    mqtt_client.subscribe("raspberry/#", 1)
     mqtt_client.loop_start()
 
 
 # Initialize MQTT on app start
 init_mqtt()
+
+# Example of how to retrieve sensor values from the database by using the API.
+# Only certain values are accepted. The accepted values can be found inside the code.
+values = db.fetch_sensor_data("humidity", "h", "aarhus", 1)
+print(len(values))
 
 
 @app.route('/', methods=["GET", "POST", "DELETE"])
@@ -93,6 +121,7 @@ def quote():
     response = app.make_response("<p> Example page <p>")
 
     return response
+
 
 if __name__ == "__main__":
     app.run(debug=True, use_reloader=False)
