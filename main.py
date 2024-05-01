@@ -91,7 +91,7 @@ init_mqtt()
 
 # Example of how to retrieve sensor values from the database by using the API.
 # Only certain values are accepted. The accepted values can be found inside the code.
-values = db.fetch_sensor_data("humidity", "h", "aarhus", 1)
+values = db.fetch_sensor_data("humidity", "h", "aarhus", 1000)
 print(len(values))
 
 

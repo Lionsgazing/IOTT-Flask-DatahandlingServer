@@ -90,7 +90,7 @@ def fetch_sensor_data(table_name, sensor_type, location, hours_back):
 
     # Create a query to select data dynamically based on the table name and type of the value.
     query = f"""
-                SELECT {sensor_type} FROM {table_name}
+                SELECT {sensor_type}, timestamp FROM {table_name}
                 WHERE location = ? AND timestamp >= ?
                 """
 
@@ -104,4 +104,4 @@ def fetch_sensor_data(table_name, sensor_type, location, hours_back):
     conn.close()
 
     # Return a list of sensor values.
-    return [row[0] for row in rows]
+    return [(row[0], row[1], table_name, location) for row in rows]
