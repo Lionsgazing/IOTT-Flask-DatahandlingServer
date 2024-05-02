@@ -122,6 +122,61 @@ def quote():
 
     return response
 
+@app.route('/getDataset/')
+def get_data_from_db():
+    connection = sqlite3.connect("SensorValues.db")
+    cursor = connection.cursor()
+    query = f"SELECT * FROM humidity"
+    query1 = f"SELECT * FROM temperature"
+    query2 = f"SELECT * FROM pressure"
+   
+   #humidity data fetching
+    cursor.execute(query)
+    rows = cursor.fetchall()
+    humidity_values = [row[0] for row in rows]  
+    location = [row[2] for row in rows]  
+    timestamps = [row[1] for row in rows]  
+    unique_location = list(set(location))
+
+   #temperature data fetching
+    cursor.execute(query1)
+    rows1 = cursor.fetchall()
+    temperature_values = [row[0] for row in rows1]  
+    location1 = [row[2] for row in rows1]  
+    timestamps1 = [row[1] for row in rows1]  
+    unique_location1 = list(set(location1))
+
+   #pressure data fetching
+    cursor.execute(query2)
+    rows2 = cursor.fetchall()
+    pressure_values = [row[0] for row in rows2]  
+    location2 = [row[2] for row in rows2]  
+    timestamps2 = [row[1] for row in rows2]  
+    unique_location2 = list(set(location2))
+
+    data = {
+        "location": unique_location,
+        "timestamps": timestamps,
+        "humidity_values": humidity_values
+    }
+    data1 = {
+        "location": unique_location1,
+        "timestamps": timestamps1,
+        "temperature_values": temperature_values
+    }
+    data2 = {
+        "location": unique_location2,
+        "timestamps": timestamps2,
+        "pressure_values": pressure_values
+    }
+
+    combined_data = {
+        "humdity_data": data,
+        "temperature_data": data1,
+        "pressure_data": data2
+    }
+    connection.close()
+    return combined_data
 
 if __name__ == "__main__":
     app.run(debug=True, use_reloader=False)
