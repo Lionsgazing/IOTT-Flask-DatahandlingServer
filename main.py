@@ -89,10 +89,24 @@ def init_mqtt():
 # Initialize MQTT on app start
 init_mqtt()
 
+
 # Example of how to retrieve sensor values from the database by using the API.
 # Only certain values are accepted. The accepted values can be found inside the code.
-values = db.fetch_sensor_data("humidity", "h", "aarhus", 1000)
-print(len(values))
+def get_chunk_of_data(location, hours_back):
+    humidity_data = db.fetch_sensor_data("humidity", "h", location, hours_back)
+    temperature_data = db.fetch_sensor_data("temperature", "t", location, hours_back)
+    pressure_data = db.fetch_sensor_data("pressure", "p", location, hours_back)
+    data_chunk = {
+        'location': location,
+        'hours_back': hours_back,
+        'temperature_data': [temperature[0] for temperature in temperature_data],
+        'humidity_data': [humidity[0] for humidity in humidity_data],
+        'pressure_data': [pressure[0] for pressure in pressure_data]
+    }
+    print(data_chunk)
+
+
+get_chunk_of_data('aarhus', 1000)
 
 
 @app.route('/', methods=["GET", "POST", "DELETE"])
@@ -122,6 +136,7 @@ def quote():
 
     return response
 
+
 @app.route('/getDataset/')
 def get_data_from_db():
     connection = sqlite3.connect("SensorValues.db")
@@ -129,29 +144,29 @@ def get_data_from_db():
     query = f"SELECT * FROM humidity"
     query1 = f"SELECT * FROM temperature"
     query2 = f"SELECT * FROM pressure"
-   
-   #humidity data fetching
+
+    # humidity data fetching
     cursor.execute(query)
     rows = cursor.fetchall()
-    humidity_values = [row[0] for row in rows]  
-    location = [row[2] for row in rows]  
-    timestamps = [row[1] for row in rows]  
+    humidity_values = [row[0] for row in rows]
+    location = [row[2] for row in rows]
+    timestamps = [row[1] for row in rows]
     unique_location = list(set(location))
 
-   #temperature data fetching
+    # temperature data fetching
     cursor.execute(query1)
     rows1 = cursor.fetchall()
-    temperature_values = [row[0] for row in rows1]  
-    location1 = [row[2] for row in rows1]  
-    timestamps1 = [row[1] for row in rows1]  
+    temperature_values = [row[0] for row in rows1]
+    location1 = [row[2] for row in rows1]
+    timestamps1 = [row[1] for row in rows1]
     unique_location1 = list(set(location1))
 
-   #pressure data fetching
+    # pressure data fetching
     cursor.execute(query2)
     rows2 = cursor.fetchall()
-    pressure_values = [row[0] for row in rows2]  
-    location2 = [row[2] for row in rows2]  
-    timestamps2 = [row[1] for row in rows2]  
+    pressure_values = [row[0] for row in rows2]
+    location2 = [row[2] for row in rows2]
+    timestamps2 = [row[1] for row in rows2]
     unique_location2 = list(set(location2))
 
     data = {
@@ -177,6 +192,7 @@ def get_data_from_db():
     }
     connection.close()
     return combined_data
+
 
 if __name__ == "__main__":
     app.run(debug=True, use_reloader=False)
