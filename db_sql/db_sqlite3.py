@@ -72,14 +72,14 @@ def fetch_sensor_data(table_name, sensor_type, location, hours_back):
     cursor = conn.cursor()
 
     # Calculate the cutoff datetime in Unix time
-    cutoff_time = datetime.now() - timedelta(hours=hours_back)
+    cutoff_time = datetime.now() - timedelta(hours=int(hours_back))
     cutoff_unix_time = cutoff_time.timestamp()
 
     # To avoid SQL injections parameters are listed here
     # to keep the table name and other parameters are safe to use in a query.
     allowed_tables = ["pressure", "humidity", "temperature"]
     allowed_sensors = ["h", "t", "p"]
-    allowed_locations = ["aarhus", "silkeborg", "copenhagen", "odense"]
+    allowed_locations = ["aarhus", "silkeborg", "copenhagen", "odense", "Aarhus", "Silkeborg", "Odense", "Aalborg", "Copenhagen"]
 
     if table_name not in allowed_tables:
         raise ValueError("Invalid table name")

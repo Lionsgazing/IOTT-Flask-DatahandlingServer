@@ -2,7 +2,7 @@ import json
 import secrets
 import sqlite3
 from time import sleep
-from flask import Flask, request, make_response, redirect, url_for
+from flask import Flask, request, make_response, redirect, url_for, Response
 import asyncio
 import paho.mqtt.client as mqtt
 import db_sql.db_sqlite3 as db
@@ -25,7 +25,7 @@ connection, cursor = db.initialize_db()
 db.close_connection(connection)
 
 
-def store_values_in_db(data):
+def store_values_in_db(data: str, location: str):
     connection = sqlite3.connect("SensorValues.db")
     cursor = connection.cursor()
     # Convert single quotes to double quotes
@@ -35,10 +35,9 @@ def store_values_in_db(data):
     data_dict = json.loads(data_string)
 
     # Insert values into tables in the sensor DB
-    db.insert_values_humidity(connection, cursor, data_dict['humidity'], data_dict['timestamp'], data_dict['location'])
-    db.insert_values_pressure(connection, cursor, data_dict['pressure'], data_dict['timestamp'], data_dict['location'])
-    db.insert_values_temperature(connection, cursor, data_dict['temperature'], data_dict['timestamp'],
-                                 data_dict['location'])
+    db.insert_values_humidity(connection, cursor, data_dict['humidity'], data_dict['timestamp'], location)
+    db.insert_values_pressure(connection, cursor, data_dict['pressure'], data_dict['timestamp'], location)
+    db.insert_values_temperature(connection, cursor, data_dict['temperature'], data_dict['timestamp'], location)
     db.close_connection(connection)
 
 
@@ -54,9 +53,12 @@ def on_connect(client, userdata, flags, rc):
         print(f"Failed to connect, return code {rc}")
 
 
-def on_message(client, userdata, message):
-    store_values_in_db(message.payload.decode())
-    print(f"Received message '{message.payload.decode()}' on topic '{message.topic}'")
+def on_message(client, userdata, message: mqtt.MQTTMessage):
+    #Get location from topic
+    location = message.topic.split("/")[1]
+
+    store_values_in_db(message.payload.decode(), location)
+    #print(f"Received message '{message.payload.decode()}' on topic '{message.topic}'")
 
 
 def on_disconnect(client, userdata, rc):
@@ -82,7 +84,12 @@ def init_mqtt():
     mqtt_client.will_set(LAST_WILL_TOPIC, payload=LAST_WILL_MESSAGE, qos=1, retain=False)
 
     mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
-    mqtt_client.subscribe("raspberry/#", 1)
+    mqtt_client.subscribe("raspberry/Odense/sense-hat/readings/all_readings", 1)
+    mqtt_client.subscribe("raspberry/Aalborg/sense-hat/readings/all_readings", 1)
+    mqtt_client.subscribe("raspberry/Aarhus/sense-hat/readings/all_readings", 1)
+    mqtt_client.subscribe("raspberry/Silkeborg/sense-hat/readings/all_readings", 1)
+    mqtt_client.subscribe("raspberry/Copenhagen/sense-hat/readings/all_readings", 1)
+    
     mqtt_client.loop_start()
 
 
@@ -99,11 +106,12 @@ def get_chunk_of_data(location, hours_back):
     data_chunk = {
         'location': location,
         'hours_back': hours_back,
-        'temperature_data': [temperature[0] for temperature in temperature_data],
-        'humidity_data': [humidity[0] for humidity in humidity_data],
-        'pressure_data': [pressure[0] for pressure in pressure_data]
+        'temperature': [temperature[0] for temperature in temperature_data],
+        'humidity': [humidity[0] for humidity in humidity_data],
+        'pressure': [pressure[0] for pressure in pressure_data]
     }
-    print(data_chunk)
+
+    return data_chunk
 
 
 get_chunk_of_data('aarhus', 1000)
@@ -136,6 +144,40 @@ def quote():
 
     return response
 
+
+@app.route("/get", methods=["GET"])
+def get_data():
+    location = request.args.get("location")
+    hours_back = request.args.get("hours_back")
+
+    if hours_back == None:
+        hours_back = 12
+
+    if location == None:
+        # Return all known locations
+        known_locations = ["Copenhagen", "Odense", "Silkeborg", "Aalborg", "Aarhus"]
+
+        payload = {}
+        for location in known_locations:
+            payload.update({location: get_chunk_of_data(location, hours_back)})
+
+        resp = Response(payload)
+        resp.headers.add('Access-Control-Allow-Origin',"*")
+        resp.headers.add("Access-Control-Allow-Headers", "*")
+        resp.headers.add("Access-Control-Allow-Methods", "*")
+
+        return payload
+    else:
+        payload = {
+            location: get_chunk_of_data(location, hours_back)
+        }
+
+        resp = Response(payload)
+        resp.headers.add('Access-Control-Allow-Origin',"*")
+        resp.headers.add("Access-Control-Allow-Headers", "*")
+        resp.headers.add("Access-Control-Allow-Methods", "*")
+
+        return payload
 
 @app.route('/getDataset/')
 def get_data_from_db():
