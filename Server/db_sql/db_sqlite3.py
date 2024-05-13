@@ -2,9 +2,9 @@ import sqlite3
 from datetime import datetime, timedelta
 
 
-def initialize_db():
+def initialize_db(path_db):
     # Initialize connection to DB and create cursor
-    connection = sqlite3.connect("SensorValues.db")
+    connection = sqlite3.connect(path_db)
     cursor = connection.cursor()
 
     # Generating tables for obtained values from the SenseHat
@@ -66,9 +66,9 @@ def insert_values_colour(connection, cursor, red, green, blue, brightness, times
 
     connection.commit()
 
-def fetch_sensor_data(table_name, sensor_type, location, hours_back):
+def fetch_sensor_data(path_db, table_name, sensor_type, location, hours_back):
     # Connect to the sensor SQLite database
-    conn = sqlite3.connect('SensorValues.db')
+    conn = sqlite3.connect(path_db)
     cursor = conn.cursor()
 
     # Calculate the cutoff datetime in Unix time
