@@ -97,17 +97,6 @@ def init_mqtt():
 # Initialize MQTT on app start
 init_mqtt()
 
-#connection = sqlite3.connect("SensorValues.db")
-#cursor = connection.cursor()
-#query = f"DELETE FROM humidity"
-#query1 = f"DELETE FROM temperature"
-#query2 = f"DELETE FROM pressure"
-#cursor.execute(query)
-#cursor.execute(query1)
-#cursor.execute(query2)
-#connection.commit()
-
-
 # Example of how to retrieve sensor values from the database by using the API.
 # Only certain values are accepted. The accepted values can be found inside the code.
 def get_chunk_of_data(location, hours_back):
@@ -123,10 +112,6 @@ def get_chunk_of_data(location, hours_back):
     }
 
     return data_chunk
-
-
-get_chunk_of_data('aarhus', 1000)
-
 
 @app.route('/', methods=["GET", "POST", "DELETE"])
 def index():
@@ -165,8 +150,16 @@ def request_database():
     
     elif (request.method == "POST"):
         #Get args
+        value_name = request.args.get("value_name")
+        value = request.args.get("value")
+        timestamp = request.args.get("timestamp")
+        location = request.args.get("location")
+
         #Alter database
-        return database_post_data()
+        if (database_post_data(value_name, value, timestamp, location)):
+            return "OK"
+        else:
+            return "FAILED"
 
     elif (request.method == "DELETE"):
         #Get args
@@ -174,11 +167,13 @@ def request_database():
         hours_back = request.args.get("hours_back")
 
         #Alter database
-        return database_delete_data()
-
+        if (database_delete_data(location, int(hours_back))):
+            return "OK"
+        else:
+            return "FAILED"
     else:
         # Do nothing
-        return ""
+        return "FAILED"
 
 def database_get_data(location: str, hours_back: int):
     if hours_back == None:
@@ -200,8 +195,34 @@ def database_get_data(location: str, hours_back: int):
 
         return payload
 
-def database_post_data(location: str, timestamp: int, value: float):
-    pass
+def database_post_data(value_name: str,  value: float, timestamp: float, location: str):
+    if (value_name == None):
+        return False
+    elif (value == None):
+        return False
+    elif (timestamp == None):
+        return False
+    elif (location == None):
+        return False
+
+    # Connect to database
+    connection = sqlite3.connect("SensorValues.db")
+    cursor = connection.cursor()
+
+    query = ""
+    if (value_name == "temperature"):
+        query = f"INSERT INTO {value_name} (t, timestamp, location) VALUES ({float(value)}, {float(timestamp)}, '{location}')"
+    elif (value_name == "humidity"):
+        query = f"INSERT INTO {value_name} (h, timestamp, location) VALUES ({float(value)}, {float(timestamp)}, '{location}')"
+    elif (value_name == "pressure"):
+        query = f"INSERT INTO {value_name} (p, timestamp, location) VALUES ({float(value)}, {float(timestamp)}, '{location}')"
+    else:
+        return False #ERR
+
+    cursor.execute(query)
+    connection.commit()
+
+    return True # Done
 
 def database_delete_data(location: str, hours_back: int):
     # Check passed values

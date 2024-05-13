@@ -91,7 +91,7 @@ def fetch_sensor_data(table_name, sensor_type, location, hours_back):
     # Create a query to select data dynamically based on the table name and type of the value.
     query = f"""
                 SELECT {sensor_type}, timestamp FROM {table_name}
-                WHERE location = ? AND timestamp >= ?
+                WHERE location = ? AND timestamp >= ? order by timestamp asc
                 """
 
     # Execute the query with parameters to ensure proper handling of data types and avoid SQL injections.
