@@ -96,6 +96,16 @@ def init_mqtt():
 # Initialize MQTT on app start
 init_mqtt()
 
+#connection = sqlite3.connect("SensorValues.db")
+#cursor = connection.cursor()
+#query = f"DELETE FROM humidity"
+#query1 = f"DELETE FROM temperature"
+#query2 = f"DELETE FROM pressure"
+#cursor.execute(query)
+#cursor.execute(query1)
+#cursor.execute(query2)
+#connection.commit()
+
 
 # Example of how to retrieve sensor values from the database by using the API.
 # Only certain values are accepted. The accepted values can be found inside the code.
