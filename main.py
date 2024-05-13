@@ -6,6 +6,7 @@ from flask import Flask, request, make_response, redirect, url_for, Response
 import asyncio
 import paho.mqtt.client as mqtt
 import db_sql.db_sqlite3 as db
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 
@@ -155,11 +156,31 @@ def quote():
     return response
 
 
-@app.route("/get", methods=["GET"])
-def get_data():
-    location = request.args.get("location")
-    hours_back = request.args.get("hours_back")
+@app.route("/database", methods=["GET", "POST", "DELETE"])
+def request_database():
+    if (request.method == "GET"):
+        location = request.args.get("location")
+        hours_back = request.args.get("hours_back")
+        return database_get_data(location, hours_back)
+    
+    elif (request.method == "POST"):
+        #Get args
+        #Alter database
+        return database_post_data()
 
+    elif (request.method == "DELETE"):
+        #Get args
+        location = request.args.get("location")
+        hours_back = request.args.get("hours_back")
+
+        #Alter database
+        return database_delete_data()
+
+    else:
+        # Do nothing
+        return ""
+
+def database_get_data(location: str, hours_back: int):
     if hours_back == None:
         hours_back = 12
 
@@ -171,23 +192,41 @@ def get_data():
         for location in known_locations:
             payload.update({location: get_chunk_of_data(location, hours_back)})
 
-        resp = Response(payload)
-        resp.headers.add('Access-Control-Allow-Origin',"*")
-        resp.headers.add("Access-Control-Allow-Headers", "*")
-        resp.headers.add("Access-Control-Allow-Methods", "*")
-
         return payload
     else:
         payload = {
             location: get_chunk_of_data(location, hours_back)
         }
 
-        resp = Response(payload)
-        resp.headers.add('Access-Control-Allow-Origin',"*")
-        resp.headers.add("Access-Control-Allow-Headers", "*")
-        resp.headers.add("Access-Control-Allow-Methods", "*")
-
         return payload
+
+def database_post_data(location: str, timestamp: int, value: float):
+    pass
+
+def database_delete_data(location: str, hours_back: int):
+    # Check passed values
+    if (hours_back == None):
+        return False
+    
+    if (location == None):
+        return False
+
+    # Calculate target datetime
+    target_datetime = datetime.now() - timedelta(hours=hours_back)
+
+    # Connect to database
+    connection = sqlite3.connect("SensorValues.db")
+    cursor = connection.cursor()
+
+    # Create query
+    query = f"DELETE FROM {location} WHERE timestamp >= {target_datetime.timestamp()}"
+
+    # Execute and commit changes
+    cursor.execute(query)
+    connection.commit()
+
+    return True
+
 
 @app.route('/getDataset/')
 def get_data_from_db():
