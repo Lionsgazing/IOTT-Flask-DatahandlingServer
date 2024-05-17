@@ -3,9 +3,12 @@ version: '3.8'
 services:
   flask:
     container_name: flask_server_project
+    build:
+      context: ./server  # Make sure this is the correct path to your Dockerfile
     image: my_flask_server
     ports:
-      - "5000:5000"
+      - "8085:8085"
     volumes:
-      - ./db_sql:/db_sql
+      - ./db_sql:/db_sql  # Ensure the ./db_sql directory exists or remove this line if not needed
     restart: always
+    stop_signal: SIGINT  # Ensures graceful shutdown of Flask

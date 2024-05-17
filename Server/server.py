@@ -2,13 +2,11 @@ import json
 import secrets
 import sqlite3
 from time import sleep
-from flask import Flask, request, make_response, redirect, url_for, Response
+from flask import Flask, request, make_response, render_template
 import asyncio
 import paho.mqtt.client as mqtt
 import db_sql.db_sqlite3 as db
 from datetime import datetime, timedelta
-
-app = Flask(__name__)
 
 # MQTT Configuration
 MQTT_BROKER = "mqtt.niels-bjorn.dk"
@@ -22,12 +20,13 @@ LAST_WILL_TOPIC = "server/status"
 mqtt_client = mqtt.Client()
 
 # Initialize database
-connection, cursor = db.initialize_db()
+db_path = 'db_sql/SensorValues.db'
+connection, cursor = db.initialize_db(db_path)
 db.close_connection(connection)
 
 
 def store_values_in_db(data: str, location: str):
-    connection = sqlite3.connect("SensorValues.db")
+    connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
     # Convert single quotes to double quotes
     data_string = data.replace("'", '"')
@@ -55,11 +54,11 @@ def on_connect(client, userdata, flags, rc):
 
 
 def on_message(client, userdata, message: mqtt.MQTTMessage):
-    #Get location from topic
+    # Get location from topic
     location = message.topic.split("/")[1]
 
     store_values_in_db(message.payload.decode(), location)
-    #print(f"Received message '{message.payload.decode()}' on topic '{message.topic}'")
+    # print(f"Received message '{message.payload.decode()}' on topic '{message.topic}'")
 
 
 def on_disconnect(client, userdata, rc):
@@ -90,7 +89,7 @@ def init_mqtt():
     mqtt_client.subscribe("raspberry/Aarhus/sense-hat/readings/all_readings", 1)
     mqtt_client.subscribe("raspberry/Silkeborg/sense-hat/readings/all_readings", 1)
     mqtt_client.subscribe("raspberry/Copenhagen/sense-hat/readings/all_readings", 1)
-    
+
     mqtt_client.loop_start()
 
 
@@ -100,9 +99,9 @@ init_mqtt()
 # Example of how to retrieve sensor values from the database by using the API.
 # Only certain values are accepted. The accepted values can be found inside the code.
 def get_chunk_of_data(location, hours_back):
-    humidity_data = db.fetch_sensor_data("humidity", "h", location, hours_back)
-    temperature_data = db.fetch_sensor_data("temperature", "t", location, hours_back)
-    pressure_data = db.fetch_sensor_data("pressure", "p", location, hours_back)
+    humidity_data = db.fetch_sensor_data(db_path, "humidity", "h", location, hours_back)
+    temperature_data = db.fetch_sensor_data(db_path, "temperature", "t", location, hours_back)
+    pressure_data = db.fetch_sensor_data(db_path, "pressure", "p", location, hours_back)
     data_chunk = {
         'location': location,
         'hours_back': hours_back,
@@ -113,6 +112,11 @@ def get_chunk_of_data(location, hours_back):
 
     return data_chunk
 
+
+get_chunk_of_data('aarhus', 1000)
+
+app = Flask(__name__, template_folder='dist', static_folder='dist/assets')
+
 @app.route('/', methods=["GET", "POST", "DELETE"])
 def index():
     """Main page example with the different methods. Probably only need the 'GET' method for this."""
@@ -122,6 +126,8 @@ def index():
 
         # Read data from csv and return it to the user.
 
+        print("it works")
+
     if request.method == "POST":
         # Post example
         pass
@@ -130,12 +136,11 @@ def index():
         # Delete example
         pass
 
-    return response
+    return render_template('index.html')
 
 
 @app.route('/example/')
-def quote():
-    """Example for a different page location."""
+def hello_world():
     response = app.make_response("<p> Example page <p>")
 
     return response
@@ -147,33 +152,24 @@ def request_database():
         location = request.args.get("location")
         hours_back = request.args.get("hours_back")
         return database_get_data(location, hours_back)
-    
-    elif (request.method == "POST"):
-        #Get args
-        value_name = request.args.get("value_name")
-        value = request.args.get("value")
-        timestamp = request.args.get("timestamp")
-        location = request.args.get("location")
 
-        #Alter database
-        if (database_post_data(value_name, value, timestamp, location)):
-            return "OK"
-        else:
-            return "FAILED"
+    elif (request.method == "POST"):
+        # Get args
+        # Alter database
+        return database_post_data()
 
     elif (request.method == "DELETE"):
-        #Get args
+        # Get args
         location = request.args.get("location")
         hours_back = request.args.get("hours_back")
 
-        #Alter database
-        if (database_delete_data(location, int(hours_back))):
-            return "OK"
-        else:
-            return "FAILED"
+        # Alter database
+        return database_delete_data()
+
     else:
         # Do nothing
-        return "FAILED"
+        return ""
+
 
 def database_get_data(location: str, hours_back: int):
     if hours_back == None:
@@ -195,40 +191,16 @@ def database_get_data(location: str, hours_back: int):
 
         return payload
 
-def database_post_data(value_name: str,  value: float, timestamp: float, location: str):
-    if (value_name == None):
-        return False
-    elif (value == None):
-        return False
-    elif (timestamp == None):
-        return False
-    elif (location == None):
-        return False
 
-    # Connect to database
-    connection = sqlite3.connect("SensorValues.db")
-    cursor = connection.cursor()
+def database_post_data(location: str, timestamp: int, value: float):
+    pass
 
-    query = ""
-    if (value_name == "temperature"):
-        query = f"INSERT INTO {value_name} (t, timestamp, location) VALUES ({float(value)}, {float(timestamp)}, '{location}')"
-    elif (value_name == "humidity"):
-        query = f"INSERT INTO {value_name} (h, timestamp, location) VALUES ({float(value)}, {float(timestamp)}, '{location}')"
-    elif (value_name == "pressure"):
-        query = f"INSERT INTO {value_name} (p, timestamp, location) VALUES ({float(value)}, {float(timestamp)}, '{location}')"
-    else:
-        return False #ERR
-
-    cursor.execute(query)
-    connection.commit()
-
-    return True # Done
 
 def database_delete_data(location: str, hours_back: int):
     # Check passed values
     if (hours_back == None):
         return False
-    
+
     if (location == None):
         return False
 
@@ -236,7 +208,7 @@ def database_delete_data(location: str, hours_back: int):
     target_datetime = datetime.now() - timedelta(hours=hours_back)
 
     # Connect to database
-    connection = sqlite3.connect("SensorValues.db")
+    connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
 
     # Create query
@@ -251,7 +223,7 @@ def database_delete_data(location: str, hours_back: int):
 
 @app.route('/getDataset/')
 def get_data_from_db():
-    connection = sqlite3.connect("SensorValues.db")
+    connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
     query = f"SELECT * FROM humidity"
     query1 = f"SELECT * FROM temperature"
@@ -307,4 +279,4 @@ def get_data_from_db():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, use_reloader=False)
+    app.run(debug=True, use_reloader=False, port=8085, host='0.0.0.0')

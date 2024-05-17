@@ -1,10 +1,19 @@
-# syntax = docker/dockerfile:1
-# Use openssl instead of latest as latest does not support encryption
-# RUN mosquitto_passwd -c -b /mosquitto/config/pwfile rpimqttclient V2HZX4S4UD64A7YH
-#FROM eclipse-mosquitto:openssl
-WORKDIR /flask
-#COPY mosquitto-config mosquitto-config/
-COPY db_sql db_sql
-#RUN mosquitto_passwd -c -b /mosquitto/config/mosquitto-password.txt rpimqttclient-sensehat pD2l0bYEw
-RUN python3 main.py
-EXPOSE 5000 5000
+# syntax = docker/dockerfile:1.4
+FROM python:3.10-alpine
+
+# Set the working directory in the container
+WORKDIR /server
+
+# Copy only the requirements file to install dependencies
+COPY requirements.txt .
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --no-cache-dir -r requirements.txt
+
+# Copy the rest of the application
+COPY . .
+
+# Define the command to run your app (you could use CMD here as well)
+ENTRYPOINT ["python3"]
+CMD ["server.py"]
+
+EXPOSE 8085
